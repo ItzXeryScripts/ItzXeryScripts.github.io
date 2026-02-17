@@ -1,0 +1,113 @@
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local TargetCFrame = CFrame.new(11.75, -7.35, -28.95)
+local isTeleporting = false
+
+local function forceBackpack()
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true)
+    end)
+end
+
+local function cleanState(char)
+    if not char then return end
+    pcall(function()
+        local HRP = char:FindFirstChild("HumanoidRootPart")
+        local Hum = char:FindFirstChild("Humanoid")
+        
+        if Hum then 
+            Hum.Sit = false 
+            Hum.PlatformStand = false
+        end
+
+        if HRP then
+            HRP.AssemblyLinearVelocity = Vector3.zero
+            HRP.AssemblyAngularVelocity = Vector3.zero
+            
+            for _, v in pairs(HRP:GetChildren()) do
+                if v:IsA("BodyMover") or v:IsA("AlignPosition") or v:IsA("RocketPropulsion") or v:IsA("BodyGyro") or v:IsA("BodyVelocity") then
+                    v:Destroy()
+                end
+            end
+            
+            for _, part in pairs(HRP:GetConnectedParts(true)) do
+                if not part:IsDescendantOf(char) then
+                    local weld = HRP:FindFirstChildOfClass("Weld") or HRP:FindFirstChildOfClass("WeldConstraint") or part:FindFirstChildOfClass("Weld")
+                    if weld then weld:Destroy() end
+                end
+            end
+        end
+    end)
+end
+
+local function executeTeleport()
+    if isTeleporting then return end
+    
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChild("Humanoid")
+
+    if HRP and Humanoid then
+        isTeleporting = true
+        
+        Humanoid:UnequipTools()
+        cleanState(Character)
+        
+        HRP.Anchored = true
+        HRP.CFrame = TargetCFrame
+        
+        Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+        
+        task.delay(0.05, function()
+            if HRP then
+                HRP.Anchored = false
+                HRP.AssemblyLinearVelocity = Vector3.zero
+                if Humanoid then
+                    Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                end
+            end
+            isTeleporting = false
+        end)
+    end
+end
+
+local function createTool()
+    if LocalPlayer.Backpack:FindFirstChild("TP Lobby") then 
+        LocalPlayer.Backpack["TP Lobby"]:Destroy() 
+    end
+    
+    local Tool = Instance.new("Tool")
+    Tool.Name = "TP Lobby"
+    Tool.RequiresHandle = false
+    Tool.CanBeDropped = false
+    
+    Tool.Equipped:Connect(function()
+        task.defer(executeTeleport)
+    end)
+    
+    Tool.Activated:Connect(function()
+        task.defer(executeTeleport)
+    end)
+    
+    Tool.Parent = LocalPlayer.Backpack
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        forceBackpack()
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 10)
+    forceBackpack()
+    createTool()
+end)
+
+forceBackpack()
+createTool()
