@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Script Hub</title>
+    <style>
+    
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; 
+            outline: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f0f0f; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; 
+            border-radius: 0px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555; 
+        }
+
+        body {
+            background-color: #050505; 
+            color: #dcdcdc;
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            user-select: none; /* Antiselection global */
+            -webkit-user-select: none;
+        }
+
+        .script-container {
+            border: 1px solid #333;
+            background-color: #111;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .script-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #333;
+        }
+
+        .filename {
+            font-size: 14px;
+            font-weight: bold;
+            color: #888;
+        }
+
+        .copy-btn {
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 5px 15px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:active {
+            background: #444;
+            transform: translateY(1px); 
+        }
+
+        .code-area {
+            width: 100%;
+            height: 200px; 
+            padding: 15px;
+            overflow-y: auto; 
+            overflow-x: auto; 
+            background-color: #0a0a0a;
+            color: #a5b3ce; 
+            font-size: 12px;
+            white-space: pre; 
+            user-select: text; 
+            -webkit-user-select: text;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="script-container">
+        <div class="script-header">
+            <span class="filename">ItzXery Hub.lua</span>
+            <button class="copy-btn" onclick="copyCode('code1', this)">SALIN</button>
+        </div>
+        <div id="code1" class="code-area">local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local FileName = "ItzXeryHubFTAP.json"
+
+-- [CONFIG SETUP]
+local DefaultConfig = {
+    -- GRAB
+    EzGrab = false, 
+    HitboxSize = 20,
+    SmoothHitbox = false,
+    HideHitboxSurface = false,
+    StripedEdges = false,
+    EdgeColor = "Green",
+    HitboxColor = "Red",
+    
+    MagnetMode = false, 
+    MagnetReach = 30,
+    HyperCarry = false,
+    BurryGrab = false,
+    
+    -- POWER (FLING ONLY - BRUTAL REMOVED)
+    SuperFling = false, 
+    FlingPower = 20000, 
+    ShowPowerBtn = true,
+    PowerBtnSize = 60,
+    PowerBtnPos = {0.8, 0, 0.6, 0},
+    
+    -- ZOOM SYSTEM
+    ShowZoomSlider = false,
+    ZoomLevel = 0,
+    
+    -- TOOLS
+    AutoLobbyTool = false,
+    AutoSkyTool = false,
+    
+    -- VISUALS
+    ESP_Enabled = false,
+    ESP_Color = "Rainbow",
+    BlurClothes = false,
+    MotionBlur_Enabled = false,
+    MotionBlur_Intensity = 15,
+    
+    -- AIM LOCK
+    AimLockEnabled = false,
+    AimLockDistance = 200,
+    AimLockSmoothness = 0.2,
+    AimLockStabilizer = 0.15,
+    
+    -- SETTINGS
+    QuickSpawn = false,
+    AntiLag = false,
+    NetworkOptimizer = true,
+    DisableShadows = false,
+    FullBright = false,
+    FPSCap = 60,
+    FOV = 70,
+    SmoothScreen = false,
+    NoCollision = false, 
+    AntiGrab = false, 
+    SafeCFrame = nil,
+    Notifications = true
+}
+
+_G.Config = DefaultConfig
+
+-- [RESTORE SYSTEM]
+local OriginalSettings = {
+    Lighting = {
+        Brightness = Lighting.Brightness,
+        ClockTime = Lighting.ClockTime,
+        GlobalShadows = Lighting.GlobalShadows,
+        Ambient = Lighting.Ambient,
+        OutdoorAmbient = Lighting.OutdoorAmbient,
+        FogEnd = Lighting.FogEnd
+    },
+    SkyInstance = nil,
+    OriginalMaterials = {}
+}
+
+for _, child in pairs(Lighting:GetChildren()) do
+    if child:IsA("Sky") then
+        OriginalSettings.SkyInstance = child:Clone()
+    end
+end
+
+pcall(function()
+    if isfile and isfile(FileName) then
+        local Loaded = HttpService:JSONDecode(readfile(FileName))
+        for k, v in pairs(DefaultConfig) do 
+            if Loaded[k] ~= nil then _G.Config[k] = Loaded[k] end
+        end
+    end
+end)
+
+local function SaveSettings()
+    pcall(function()
+        local SaveData = {}
+        for k, v in pairs(_G.Config) do
+            if typeof(v) ~= "Instance" and typeof(v) ~= "CFrame" then SaveData[k] = v end
+        end
+        if writefile then writefile(FileName, HttpService:JSONEncode(SaveData)) end
+    end)
+end
+
+local OriginalPlayerProperties = {}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ItzXeryHub_V30_7"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true 
+if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = game.CoreGui end
+
+-- NOTIFICATION SYSTEM
+local NotificationHolder = Instance.new("Frame")
+NotificationHolder.Name = "NotificationHolder"
+NotificationHolder.Size = UDim2.new(0, 200, 1, 0)
+NotificationHolder.Position = UDim2.new(1, -210, 0, 30)
+NotificationHolder.BackgroundTransparency = 1
+NotificationHolder.Parent = ScreenGui
+Instance.new("UIListLayout", NotificationHolder).Padding = UDim.new(0, 5)
+
+local function SendNotification(title, text)
+    if not _G.Config.Notifications then return end
+    pcall(function()
+        local Notif = Instance.new("Frame")
+        Notif.Size = UDim2.new(1, 0, 0, 45)
+        Notif.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        Notif.Parent = NotificationHolder
+        Instance.new("UICorner", Notif).CornerRadius = UDim.new(0, 6)
+        Instance.new("UIStroke", Notif).Color = Color3.fromRGB(0, 255, 150)
+        
+        local TitleLbl = Instance.new("TextLabel", Notif)
+        TitleLbl.Text = title
+        TitleLbl.Size = UDim2.new(1, -5, 0, 15)
+        TitleLbl.Position = UDim2.new(0, 5, 0, 2)
+        TitleLbl.BackgroundTransparency = 1
+        TitleLbl.TextColor3 = Color3.fromRGB(0, 255, 150)
+        TitleLbl.Font = Enum.Font.GothamBold
+        TitleLbl.TextSize = 11
+        TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local DescLbl = Instance.new("TextLabel", Notif)
+        DescLbl.Text = text
+        DescLbl.Size = UDim2.new(1, -5, 0, 20)
+        DescLbl.Position = UDim2.new(0, 5, 0, 18)
+        DescLbl.BackgroundTransparency = 1
+        DescLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+        DescLbl.Font = Enum.Font.Gotham
+        DescLbl.TextSize = 10
+        DescLbl.TextXAlignment = Enum.TextXAlignment.Left
+        
+        TweenService:Create(Notif, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
+        task.delay(3, function() if Notif and Notif.Parent then Notif:Destroy() end end)
+    end)
+end
+
+-- ====================================================
+-- SMART DRAG SYSTEM
+-- ====================================================
+local function EnableSmartDrag(frame, configPosKey, configToggleKey, callback)
+    local dragging, dragInput, dragStart, startPos, isClick
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, isClick, dragStart, startPos = true, true, input.Position, frame.Position
+            local changedConn
+            changedConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    _G.Config[configPosKey] = {frame.Position.X.Scale, frame.Position.X.Offset, frame.Position.Y.Scale, frame.Position.Y.Offset}
+                    SaveSettings()
+                    if isClick then
+                        if configToggleKey then _G.Config[configToggleKey] = not _G.Config[configToggleKey] end
+                        if callback then callback() end
+                        SaveSettings()
+                    end
+                    if changedConn then changedConn:Disconnect() end
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            if delta.Magnitude > 2 then isClick = false end
+            local viewportSize = Camera.ViewportSize
+            local frameSize = frame.AbsoluteSize
+            local newXOffset = startPos.X.Offset + delta.X
+            local newYOffset = startPos.Y.Offset + delta.Y
+            local currentX = (startPos.X.Scale * viewportSize.X) + newXOffset
+            local currentY = (startPos.Y.Scale * viewportSize.Y) + newYOffset
+            frame.Position = UDim2.fromOffset(currentX, currentY)
+        end
+    end)
+end
+
+-- ====================================================
+-- OVERLAYS (POWER & ZOOM)
+-- ====================================================
+
+-- 1. POWER BUTTON
+local pPos = _G.Config.PowerBtnPos or {0.8, 0, 0.6, 0}
+local PowerOverlay = Instance.new("Frame", ScreenGui)
+PowerOverlay.Name = "PowerOverlay"
+PowerOverlay.Size = UDim2.new(0, _G.Config.PowerBtnSize, 0, _G.Config.PowerBtnSize)
+PowerOverlay.Position = UDim2.new(pPos[1], pPos[2], pPos[3], pPos[4])
+PowerOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+PowerOverlay.BackgroundTransparency = 0.5
+PowerOverlay.Visible = _G.Config.ShowPowerBtn
+PowerOverlay.ZIndex = 100
+Instance.new("UICorner", PowerOverlay).CornerRadius = UDim.new(1, 0)
+local PO_Stroke = Instance.new("UIStroke", PowerOverlay)
+PO_Stroke.Color = Color3.fromRGB(255, 255, 255); PO_Stroke.Thickness = 2
+local PowerLabel = Instance.new("TextLabel", PowerOverlay)
+PowerLabel.Size = UDim2.new(1, 0, 1, 0); PowerLabel.BackgroundTransparency = 1; PowerLabel.Text = "PWR"; PowerLabel.TextColor3 = _G.Config.SuperFling and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50); PowerLabel.Font = Enum.Font.GothamBlack; PowerLabel.TextSize = 14; PowerLabel.ZIndex = 101
+
+local function UpdatePowerVisuals()
+    local isActive = _G.Config.SuperFling
+    PowerLabel.TextColor3 = isActive and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
+    PO_Stroke.Color = isActive and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
+end
+EnableSmartDrag(PowerOverlay, "PowerBtnPos", "SuperFling", UpdatePowerVisuals)
+
+-- 2. ZOOM SLIDER (MOVED UP SLIGHTLY AS REQUESTED)
+local ZoomFrame = Instance.new("Frame", ScreenGui)
+ZoomFrame.Name = "ZoomSlider"
+ZoomFrame.Size = UDim2.new(0, 20, 0, 200)
+ZoomFrame.Position = UDim2.new(0, 20, 0.15, 0) -- Moved UP (0.15)
+ZoomFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ZoomFrame.BorderSizePixel = 0
+ZoomFrame.Visible = _G.Config.ShowZoomSlider
+ZoomFrame.Active = true 
+Instance.new("UICorner", ZoomFrame).CornerRadius = UDim.new(1, 0)
+
+local ZoomGradientFrame = Instance.new("Frame", ZoomFrame)
+ZoomGradientFrame.Size = UDim2.new(1, 0, 1, 0)
+ZoomGradientFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ZoomGradientFrame.BorderSizePixel = 0
+Instance.new("UICorner", ZoomGradientFrame).CornerRadius = UDim.new(1, 0)
+
+local UIGradient = Instance.new("UIGradient", ZoomGradientFrame)
+UIGradient.Rotation = -90
+UIGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+})
+
+local ZoomKnob = Instance.new("Frame", ZoomFrame)
+ZoomKnob.Size = UDim2.new(0, 30, 0, 30)
+ZoomKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+ZoomKnob.Position = UDim2.new(0.5, 0, 1, 0)
+ZoomKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ZoomKnob.Active = true
+Instance.new("UICorner", ZoomKnob).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", ZoomKnob).Thickness = 2
+
+-- Vignette for Zoom
+local Vignette = Instance.new("ImageLabel", ScreenGui)
+Vignette.Size = UDim2.new(1, 0, 1, 0)
+Vignette.BackgroundTransparency = 1
+Vignette.Image = "rbxassetid://4599466725" -- Standard Vignette Texture
+Vignette.ImageTransparency = 1
+Vignette.ImageColor3 = Color3.fromRGB(0,0,0)
+Vignette.ZIndex = 0
+
+local isZoomDragging = false
+ZoomKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isZoomDragging = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isZoomDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isZoomDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local relativeY = input.Position.Y - ZoomFrame.AbsolutePosition.Y
+        local percent = math.clamp(relativeY / ZoomFrame.AbsoluteSize.Y, 0, 1)
+        local actualPercent = 1 - percent
+        
+        ZoomKnob.Position = UDim2.new(0.5, 0, percent, 0)
+        _G.Config.ZoomLevel = actualPercent
+        
+        -- Darken Edges logic
+        Vignette.ImageTransparency = 1 - (actualPercent * 0.8)
+    end
+end)
+
+-- ====================================================
+-- MAIN GUI SETUP
+-- ====================================================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainHub"
+MainFrame.Size = UDim2.new(0, 480, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -155)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Visible = true 
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 65)
+
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Name = "SideOpenButton"
+OpenBtn.Size = UDim2.new(0, 40, 0, 40)
+OpenBtn.Position = UDim2.new(0, 5, 0.65, 0) 
+OpenBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+OpenBtn.Text = "M"
+OpenBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
+OpenBtn.Font = Enum.Font.GothamBlack
+OpenBtn.TextSize = 14
+OpenBtn.Visible = false
+OpenBtn.Parent = ScreenGui
+OpenBtn.BackgroundTransparency = 0.3
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(0, 255, 150)
+
+-- Music System
+local HubMusic = Instance.new("Sound", MainFrame)
+HubMusic.SoundId = "rbxassetid://1847620349" 
+HubMusic.Volume = 0.3
+HubMusic.Looped = true
+HubMusic:Play()
+
+OpenBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    MainFrame:TweenSize(UDim2.new(0, 480, 0, 310), Enum.EasingDirection.Out, Enum.EasingStyle.Back, 0.4, true)
+    OpenBtn.Visible = false
+    HubMusic:Resume()
+end)
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+
+local function EnableDragMain(frame, dragTarget)
+    local dragging, dragInput, dragStart, startPos
+    dragTarget.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, dragStart, startPos = true, input.Position, frame.AbsolutePosition
+            local changedConn
+            changedConn = input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false; if changedConn then changedConn:Disconnect() end end end)
+        end
+    end)
+    dragTarget.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta, viewportSize, frameSize = input.Position - dragStart, Camera.ViewportSize, frame.AbsoluteSize
+            local newPos = startPos + delta
+            local clampedX = math.clamp(newPos.X, 0, viewportSize.X - frameSize.X)
+            local clampedY = math.clamp(newPos.Y, 0, viewportSize.Y - frameSize.Y)
+            frame.Position = UDim2.fromOffset(clampedX, clampedY)
+        end
+    end)
+end
+EnableDragMain(MainFrame, TopBar) 
+
+local Title = Instance.new("TextLabel", TopBar)
+Title.Text = "ITZXERY HUB"
+Title.Size = UDim2.new(0, 280, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local function CreateTopBtn(text, color, offset, callback)
+    local Btn = Instance.new("TextButton", TopBar)
+    Btn.Size = UDim2.new(0, 24, 0, 24)
+    Btn.Position = UDim2.new(1, offset, 0.5, -12)
+    Btn.BackgroundColor3 = color
+    Btn.Text, Btn.TextColor3 = text, Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 11
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    Btn.MouseButton1Click:Connect(callback)
+end
+
+CreateTopBtn("X", Color3.fromRGB(200, 60, 60), -35, function()
+    HubMusic:Pause()
+    MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+    task.wait(0.3)
+    MainFrame.Visible = false
+    OpenBtn.Visible = true
+end)
+CreateTopBtn("-", Color3.fromRGB(60, 60, 65), -70, function()
+    HubMusic:Pause()
+    MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+    task.wait(0.3)
+    MainFrame.Visible = false
+    OpenBtn.Visible = true
+end)
+
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Size = UDim2.new(0, 110, 1, -40)
+Sidebar.Position = UDim2.new(0, 0, 0, 40)
+Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Sidebar.BorderSizePixel = 0
+Sidebar.ScrollBarThickness = 2
+Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Sidebar.Parent = MainFrame
+local SideList = Instance.new("UIListLayout")
+SideList.SortOrder = Enum.SortOrder.LayoutOrder
+SideList.Padding = UDim.new(0, 4)
+SideList.Parent = Sidebar
+local SidePad = Instance.new("UIPadding")
+SidePad.PaddingTop, SidePad.PaddingLeft = UDim.new(0, 10), UDim.new(0, 5)
+
+local ContentArea = Instance.new("Frame")
+ContentArea.Size = UDim2.new(1, -110, 1, -40)
+ContentArea.Position = UDim2.new(0, 110, 0, 40)
+ContentArea.BackgroundTransparency = 1
+ContentArea.Parent = MainFrame
+local Tabs, TabButtons = {}, {}
+
+local function CreatePage(name)
+    local Page = Instance.new("ScrollingFrame")
+    Page.Name, Page.Size, Page.BackgroundTransparency, Page.BorderSizePixel = name, UDim2.new(1, 0, 1, 0), 1, 0
+    Page.ScrollBarThickness, Page.AutomaticCanvasSize, Page.Visible, Page.Parent = 3, Enum.AutomaticSize.Y, false, ContentArea
+    local L = Instance.new("UIListLayout", Page)
+    L.SortOrder, L.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 6)
+    local P = Instance.new("UIPadding", Page)
+    P.PaddingTop, P.PaddingLeft, P.PaddingRight, P.PaddingBottom = UDim.new(0, 10), UDim.new(0, 10), UDim.new(0, 10), UDim.new(0, 20)
+    table.insert(Tabs, Page)
+    return Page
+end
+
+local function AddTab(text, page)
+    local Btn = Instance.new("TextButton")
+    Btn.Size, Btn.BackgroundColor3, Btn.Text, Btn.TextColor3 = UDim2.new(0, 100, 0, 30), Color3.fromRGB(30, 30, 35), text, Color3.fromRGB(150, 150, 150)
+    Btn.Font, Btn.TextSize, Btn.Parent = Enum.Font.GothamSemibold, 10, Sidebar
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    table.insert(TabButtons, {B = Btn, P = page})
+    Btn.MouseButton1Click:Connect(function()
+        for _, t in pairs(Tabs) do t.Visible = false end
+        for _, tb in pairs(TabButtons) do 
+            tb.B.BackgroundColor3, tb.B.TextColor3 = Color3.fromRGB(30, 30, 35), Color3.fromRGB(150, 150, 150)
+        end
+        Btn.BackgroundColor3, Btn.TextColor3, page.Visible = Color3.fromRGB(0, 255, 150), Color3.fromRGB(20, 20, 25), true
+    end)
+end
+
+-- [COMPONENT GENERATORS]
+local function CreateToggle(parent, text, config, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size, Frame.BackgroundColor3 = UDim2.new(1, 0, 0, 32), Color3.fromRGB(25, 25, 30)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Text, Lbl.Size, Lbl.Position, Lbl.BackgroundTransparency, Lbl.TextColor3 = text, UDim2.new(0.7, 0, 1, 0), UDim2.new(0, 8, 0, 0), 1, Color3.fromRGB(230, 230, 230)
+    Lbl.Font, Lbl.TextSize, Lbl.TextXAlignment = Enum.Font.GothamSemibold, 11, Enum.TextXAlignment.Left
+    Lbl.Parent = Frame
+    local Btn = Instance.new("TextButton")
+    Btn.Size, Btn.Position, Btn.BackgroundColor3, Btn.Text = UDim2.new(0, 30, 0, 16), UDim2.new(1, -38, 0.5, -8), _G.Config[config] and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(50, 50, 55), ""
+    Btn.Parent = Frame
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
+    local Dot = Instance.new("Frame")
+    Dot.Size, Dot.Position, Dot.BackgroundColor3 = UDim2.new(0, 12, 0, 12), _G.Config[config] and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6), Color3.fromRGB(255, 255, 255)
+    Dot.Parent = Btn
+    Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+    local function UpdateVisuals()
+        local s = _G.Config[config]
+        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = s and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(50, 50, 55)}):Play()
+        TweenService:Create(Dot, TweenInfo.new(0.2), {Position = s and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
+    end
+    Btn.MouseButton1Click:Connect(function()
+        _G.Config[config] = not _G.Config[config]
+        UpdateVisuals()
+        SaveSettings()
+        if callback then pcall(callback, _G.Config[config]) end
+    end)
+    Frame.Parent = parent
+    UpdateVisuals()
+end
+
+local function CreateSlider(parent, text, config, min, max, decimalPlaces, callback)
+    decimalPlaces = decimalPlaces or 0
+    local Frame = Instance.new("Frame")
+    Frame.Size, Frame.BackgroundColor3 = UDim2.new(1, 0, 0, 45), Color3.fromRGB(25, 25, 30)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+    local Label = Instance.new("TextLabel")
+    Label.Text, Label.Size, Label.Position, Label.BackgroundTransparency, Label.TextColor3 = text, UDim2.new(1, 0, 0, 18), UDim2.new(0, 8, 0, 2), 1, Color3.fromRGB(230, 230, 230)
+    Label.Font, Label.TextSize, Label.TextXAlignment = Enum.Font.GothamSemibold, 11, Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    local Input = Instance.new("TextBox")
+    Input.Size, Input.Position, Input.BackgroundColor3 = UDim2.new(0, 40, 0, 16), UDim2.new(1, -48, 0, 2), Color3.fromRGB(15, 15, 20)
+    Input.Text, Input.TextColor3, Input.Font, Input.TextSize = tostring(_G.Config[config]), Color3.fromRGB(0, 255, 150), Enum.Font.GothamBold, 10
+    Input.Parent = Frame
+    Instance.new("UICorner", Input).CornerRadius = UDim.new(0, 4)
+    local SliderBg = Instance.new("TextButton")
+    SliderBg.Text, SliderBg.AutoButtonColor, SliderBg.Size, SliderBg.Position, SliderBg.BackgroundColor3 = "", false, UDim2.new(1, -16, 0, 4), UDim2.new(0, 8, 0, 30), Color3.fromRGB(45, 45, 50)
+    SliderBg.Parent = Frame
+    Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(1, 0)
+    local Fill = Instance.new("Frame")
+    Fill.BackgroundColor3, Fill.Size = Color3.fromRGB(0, 255, 150), UDim2.new((_G.Config[config] - min)/(max - min), 0, 1, 0)
+    Fill.Parent = SliderBg
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+    local function Update(val)
+        val = math.clamp(val, min, max)
+        val = (decimalPlaces > 0) and tonumber(string.format("%."..decimalPlaces.."f", val)) or math.floor(val)
+        _G.Config[config], Input.Text, Fill.Size = val, tostring(val), UDim2.new((val - min)/(max - min), 0, 1, 0)
+        SaveSettings()
+        if callback then pcall(callback, val) end
+    end
+    local Dragging = false
+    SliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            Dragging = true
+            local Pos = math.clamp((input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
+            Update(min + ((max - min) * Pos))
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local Pos = math.clamp((input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
+            Update(min + ((max - min) * Pos))
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then Dragging = false end end)
+    Input.FocusLost:Connect(function() local n = tonumber(Input.Text) if n then Update(n) else Input.Text = tostring(_G.Config[config]) end end)
+    Frame.Parent = parent
+end
+
+local function CreateButton(parent, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size, Btn.BackgroundColor3, Btn.Text, Btn.TextColor3 = UDim2.new(1, 0, 0, 32), Color3.fromRGB(0, 255, 150), text, Color3.fromRGB(20, 20, 25)
+    Btn.Font, Btn.TextSize = Enum.Font.GothamBold, 11
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    Btn.MouseButton1Click:Connect(function() if callback then pcall(callback) end end)
+    Btn.Parent = parent
+end
+
+local function CreateColorBtn(parent, text, config, callback)
+    local Colors = {"Red", "Blue", "Green", "Purple", "Cyan", "Yellow", "Rainbow"}
+    local Index = table.find(Colors, _G.Config[config]) or 1
+    local Frame = Instance.new("Frame")
+    Frame.Size, Frame.BackgroundColor3 = UDim2.new(1, 0, 0, 32), Color3.fromRGB(25, 25, 30)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Text, Lbl.Size, Lbl.Position, Lbl.BackgroundTransparency, Lbl.TextColor3 = text, UDim2.new(0.5, 0, 1, 0), UDim2.new(0, 8, 0, 0), 1, Color3.fromRGB(230, 230, 230)
+    Lbl.Font, Lbl.TextSize, Lbl.TextXAlignment = Enum.Font.GothamSemibold, 11, Enum.TextXAlignment.Left
+    Lbl.Parent = Frame
+    local Btn = Instance.new("TextButton")
+    Btn.Size, Btn.Position, Btn.BackgroundColor3, Btn.Text, Btn.TextColor3 = UDim2.new(0, 80, 0, 20), UDim2.new(1, -88, 0.5, -10), Color3.fromRGB(40, 40, 45), _G.Config[config], Color3.fromRGB(0, 255, 150)
+    Btn.Font, Btn.TextSize = Enum.Font.GothamBold, 10
+    Btn.Parent = Frame
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+    Btn.MouseButton1Click:Connect(function()
+        Index = (Index % #Colors) + 1
+        _G.Config[config], Btn.Text = Colors[Index], Colors[Index]
+        SaveSettings()
+        if callback then pcall(callback) end
+    end)
+    Frame.Parent = parent
+end
+
+-- ====================================================
+-- INFO TAB HELPER (NEW - Full Indo, Profesional, Rapi)
+-- ====================================================
+local function AddInfoEntry(parent, titleText, descText)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 0) -- Auto sized
+    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    Container.BackgroundTransparency = 1
+    Container.Parent = parent
+    
+    local Layout = Instance.new("UIListLayout", Container)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Padding = UDim.new(0, 2)
+    
+    local Title = Instance.new("TextLabel")
+    Title.Text = titleText
+    Title.Size = UDim2.new(1, 0, 0, 18)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextSize = 12
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Container
+    
+    local Desc = Instance.new("TextLabel")
+    Desc.Text = descText
+    Desc.Size = UDim2.new(1, 0, 0, 0)
+    Desc.AutomaticSize = Enum.AutomaticSize.Y
+    Desc.BackgroundTransparency = 1
+    Desc.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Desc.Font = Enum.Font.Gotham
+    Desc.TextSize = 10
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    Desc.TextWrapped = true
+    Desc.Parent = Container
+
+    local Line = Instance.new("Frame")
+    Line.Size = UDim2.new(1, 0, 0, 1)
+    Line.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    Line.BorderSizePixel = 0
+    Line.Parent = parent
+    
+    -- Spacing after line
+    local Spacer = Instance.new("Frame")
+    Spacer.Size = UDim2.new(1, 0, 0, 5)
+    Spacer.BackgroundTransparency = 1
+    Spacer.Parent = parent
+
+    Container.AutomaticSize = Enum.AutomaticSize.Y
+end
+
+-- ====================================================
+-- LOGIC FUNCTIONS & SETUP
+-- ====================================================
+local Logic = {}
+
+local SkyPlatform = Instance.new("Part", Workspace)
+SkyPlatform.Name = "ITZXERY_SkyPlatform"
+SkyPlatform.Size = Vector3.new(200, 10, 200)
+SkyPlatform.Position = Vector3.new(0, 5000, 0)
+SkyPlatform.Anchored = true
+SkyPlatform.Material = Enum.Material.Concrete
+SkyPlatform.Color = Color3.fromRGB(80, 80, 80)
+
+local function CreateSkyPart(name, size, pos, color)
+    local p = Instance.new("Part", Skybox)
+    p.Name, p.Size, p.Position, p.Color, p.Material, p.Anchored = name, size, pos, color, Enum.Material.Concrete, true
+    return p
+end
+local Floor = CreateSkyPart("Floor", Vector3.new(200, 5, 200), Vector3.new(0, 1000, 0), Color3.fromRGB(80, 80, 80))
+CreateSkyPart("Ceiling", Vector3.new(200, 5, 200), Vector3.new(0, 1030, 0), Color3.fromRGB(60, 60, 60))
+CreateSkyPart("Wall1", Vector3.new(5, 30, 200), Vector3.new(97.5, 1015, 0), Color3.fromRGB(70, 70, 70))
+CreateSkyPart("Wall2", Vector3.new(5, 30, 200), Vector3.new(-97.5, 1015, 0), Color3.fromRGB(70, 70, 70))
+CreateSkyPart("Wall3", Vector3.new(200, 30, 5), Vector3.new(0, 1015, 97.5), Color3.fromRGB(70, 70, 70))
+CreateSkyPart("Wall4", Vector3.new(200, 30, 5), Vector3.new(0, 1015, -97.5), Color3.fromRGB(70, 70, 70))
+local function CreateLight(parent, face)
+    local light = Instance.new("SurfaceLight", parent)
+    light.Face = face; light.Color = Color3.fromRGB(0, 255, 150); light.Brightness = 2; light.Range = 60; light.Angle = 120
+end
+CreateLight(Ceiling, Enum.NormalId.Bottom)
+
+-- Professional TP System (ANTI-STUCK)
+local function cleanPhysics(char)
+    pcall(function()
+        if not char then return end
+        local HRP = char:FindFirstChild("HumanoidRootPart")
+        local Hum = char:FindFirstChild("Humanoid")
+        if Hum then Hum.Sit = false end
+        if HRP then
+            for _, v in pairs(HRP:GetChildren()) do
+                if v:IsA("BodyMover") or v:IsA("AlignPosition") or v:IsA("RocketPropulsion") then v:Destroy() end
+            end
+        end
+    end)
+end
+
+local function performTeleport(targetCFrame, isLobby)
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChild("Humanoid")
+    if HRP and Humanoid then
+        Humanoid:UnequipTools()
+        cleanPhysics(Character)
+        HRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        HRP.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        
+        if isLobby then
+            HRP.CFrame = targetCFrame
+            HRP.Anchored = true
+            Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            
+            local tempSeat = Workspace:FindFirstChild("TempLobbySeat") or Instance.new("Part")
+            tempSeat.Name = "TempLobbySeat"; tempSeat.Size = Vector3.new(2,1,2); tempSeat.Position = targetCFrame.Position
+            tempSeat.Anchored = true; tempSeat.Transparency = 1; tempSeat.Parent = Workspace
+            
+            task.delay(0.1, function()
+                HRP.Anchored = false
+                Humanoid:Sit(tempSeat)
+                Humanoid:ChangeState(Enum.HumanoidStateType.Seated)
+            end)
+            
+            local conn; conn = Humanoid.StateChanged:Connect(function(old, new)
+                if new ~= Enum.HumanoidStateType.Seated then
+                    tempSeat:Destroy()
+                    conn:Disconnect()
+                end
+            end)
+        else
+            HRP.CFrame = targetCFrame + Vector3.new(0, 5, 0)
+            HRP.Anchored = true
+            Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            task.delay(0.1, function()
+                if HRP and Humanoid then
+                    HRP.Anchored = false
+                    HRP.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                    Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                end
+            end)
+        end
+    end
+end
+
+local function createTeleportTool(name, targetCFrame, isLobby)
+    if LocalPlayer.Backpack:FindFirstChild(name) then LocalPlayer.Backpack[name]:Destroy() end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild(name) then LocalPlayer.Character[name]:Destroy() end
+    
+    local Tool = Instance.new("Tool")
+    Tool.Name = name
+    Tool.RequiresHandle = false
+    Tool.CanBeDropped = false
+    Tool.ToolTip = "Teleport to "..name
+    Tool.Equipped:Connect(function() performTeleport(targetCFrame, isLobby) end)
+    Tool.Parent = LocalPlayer.Backpack
+end
+
+function Logic:GiveLobbyTool(enabled)
+    if enabled then createTeleportTool("TP Lobby", CFrame.new(11.75, -7.35, -28.95), true)
+    else if LocalPlayer.Backpack:FindFirstChild("TP Lobby") then LocalPlayer.Backpack["TP Lobby"]:Destroy() end end
+end
+
+function Logic:GiveSkyTool(enabled)
+    if enabled then createTeleportTool("TP Sky", Floor.CFrame, false)
+    else if LocalPlayer.Backpack:FindFirstChild("TP Sky") then LocalPlayer.Backpack["TP Sky"]:Destroy() end end
+end
+
+-- NEW VISUAL OBJECTS
+function Logic:SpawnVisualBox()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local box = Instance.new("Part")
+    box.Name = "VisualBox"
+    box.Size = Vector3.new(3,3,3)
+    box.CFrame = hrp.CFrame + hrp.CFrame.LookVector * 5 + Vector3.new(0,2,0)
+    box.Material = Enum.Material.Neon
+    box.Color = Color3.fromHSV(math.random(), 1, 1)
+    box.CustomPhysicalProperties = PhysicalProperties.new(0.5, 0.3, 0.5) 
+    box.Parent = Workspace
+    
+    local light = Instance.new("PointLight", box)
+    light.Color = box.Color; light.Brightness = 2; light.Range = 10
+end
+
+function Logic:SpawnWoodBox()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local box = Instance.new("Part")
+    box.Name = "WoodBox"
+    box.Size = Vector3.new(20, 1, 20) -- FLAT PLATFORM
+    box.CFrame = hrp.CFrame + hrp.CFrame.LookVector * 8 + Vector3.new(0,2,0)
+    box.Material = Enum.Material.Wood
+    box.BrickColor = BrickColor.new("Brown")
+    box.CustomPhysicalProperties = PhysicalProperties.new(0.3, 0.5, 0.5)
+    box.Parent = Workspace
+end
+
+function Logic:RestorePlayerHRP(player)
+    pcall(function()
+        if not player or not player.Character then return end
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp or not OriginalPlayerProperties[player.UserId] then return end
+        local props = OriginalPlayerProperties[player.UserId]
+        for prop, value in pairs(props) do pcall(function() hrp[prop] = value end) end
+        if hrp:FindFirstChild("HitboxEdge") then hrp.HitboxEdge:Destroy() end
+        OriginalPlayerProperties[player.UserId] = nil
+    end)
+end
+
+function Logic:ApplyEzGrabToPlayer(player)
+    pcall(function()
+        if not player or not player.Character or player == LocalPlayer then return end
+        local hrp = player.Character:WaitForChild("HumanoidRootPart", 2)
+        if not hrp then return end
+
+        hrp.Transparency = _G.Config.HideHitboxSurface and 1 or (_G.Config.SmoothHitbox and 0.6 or 0.8)
+
+        if not OriginalPlayerProperties[player.UserId] then 
+            OriginalPlayerProperties[player.UserId] = { Size = hrp.Size, CanCollide = hrp.CanCollide, Transparency = hrp.Transparency, Shape = hrp.Shape, Material = hrp.Material, Color = hrp.Color } 
+        end
+        
+        hrp.Size = Vector3.new(_G.Config.HitboxSize, _G.Config.HitboxSize, _G.Config.HitboxSize)
+        hrp.CanCollide = false
+        hrp.Shape = _G.Config.SmoothHitbox and Enum.PartType.Ball or Enum.PartType.Block
+        hrp.Material = Enum.Material.ForceField
+        hrp.Color = Logic.GetColor("HitboxColor")
+        
+        if _G.Config.StripedEdges then
+            local edge = hrp:FindFirstChild("HitboxEdge") or Instance.new(_G.Config.SmoothHitbox and "SelectionSphere" or "SelectionBox")
+            edge.Name, edge.Adornee, edge.Parent, edge.Transparency, edge.Color3 = "HitboxEdge", hrp, hrp, 0, Logic.GetColor("EdgeColor")
+            edge.LineThickness = 0.05
+        elseif hrp:FindFirstChild("HitboxEdge") then
+            hrp.HitboxEdge:Destroy()
+        end
+    end)
+end
+
+-- Professional Lighting Update
+function Logic:UpdateLighting()
+    -- Full Bright Logic (Professional, not washed out)
+    if _G.Config.FullBright then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    end
+    
+    -- Disable Shadows Logic
+    if _G.Config.DisableShadows then
+        Lighting.GlobalShadows = false
+    elseif not _G.Config.FullBright then
+        Lighting.GlobalShadows = OriginalSettings.Lighting.GlobalShadows
+    end
+end
+
+function Logic:UpdateAntiLag(enabled) 
+    -- AntiLag now focuses on textures/graphics, shadow logic moved to DisableShadows
+    if enabled then
+        Lighting.GlobalShadows = false
+    end
+end
+
+function Logic:UpdateNetworkOptimizer(enabled)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, part in pairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CastShadow = not enabled end
+            end
+        end
+    end
+end
+
+function Logic:UpdateBlurClothes(player, enabled)
+    if not player or not player.Character then return end
+    for _, item in pairs(player.Character:GetChildren()) do
+        if item:IsA("Clothing") or item:IsA("Accessory") then
+            local handle = item:FindFirstChild("Handle")
+            if handle then
+                if enabled and not OriginalSettings.OriginalMaterials[handle] then
+                    OriginalSettings.OriginalMaterials[handle] = handle.Material
+                    handle.Material = Enum.Material.SmoothPlastic
+                elseif not enabled and OriginalSettings.OriginalMaterials[handle] then
+                    handle.Material = OriginalSettings.OriginalMaterials[handle]
+                    OriginalSettings.OriginalMaterials[handle] = nil
+                end
+            end
+        end
+    end
+end
+
+function Logic.GetColor(cfgName)
+    local c = _G.Config[cfgName]
+    if c == "Red" then return Color3.fromRGB(255,0,0) elseif c == "Blue" then return Color3.fromRGB(0,0,255) elseif c == "Green" then return Color3.fromRGB(0,255,0)
+    elseif c == "Purple" then return Color3.fromRGB(170,0,255) elseif c == "Cyan" then return Color3.fromRGB(0,255,255) elseif c == "Yellow" then return Color3.fromRGB(255,255,0)
+    elseif c == "Rainbow" then return Color3.fromHSV(tick() % 5 / 5, 1, 1) end
+    return Color3.fromRGB(255,0,0)
+end
+
+local P_Info = CreatePage("Info") -- NEW TAB
+local P_Grab = CreatePage("Grab")
+local P_Visuals = CreatePage("Visuals")
+local P_Objects = CreatePage("Objects")
+local P_Aim = CreatePage("Aim Lock")
+local P_Power = CreatePage("Power")
+local P_Tele = CreatePage("Teleport")
+local P_Settings = CreatePage("Settings")
+
+AddTab("Info", P_Info)
+AddTab("Grab", P_Grab)
+AddTab("Visuals", P_Visuals)
+AddTab("Objects", P_Objects)
+AddTab("Aim Lock", P_Aim)
+AddTab("Power", P_Power)
+AddTab("Teleport", P_Tele)
+AddTab("Settings", P_Settings)
+
+-- INFO TAB CONTENT
+AddInfoEntry(P_Info, "Selamat Datang di ItzXery Hub", "Hub script ItzXery Hub untuk Game FTAP. Scroll ke bawah untuk melihat penjelasan fitur.")
+AddInfoEntry(P_Info, "Ez Grab", "Memperbesar hitbox karakter pemain lain agar lebih mudah ditangkap atau diserang. Ukuran bisa diatur.")
+AddInfoEntry(P_Info, "Smooth Hitbox", "Mengubah bentuk hitbox menjadi bola halus, bukan kotak kasar.")
+AddInfoEntry(P_Info, "Visuals (ESP)", "Melihat posisi pemain lain menembus dinding dengan highlight berwarna.")
+AddInfoEntry(P_Info, "Objects", "Memunculkan objek fisik seperti kotak neon atau platform kayu untuk membantu pijakan.")
+AddInfoEntry(P_Info, "Aim Lock", "Secara otomatis mengunci kamera ke arah musuh terdekat untuk akurasi tinggi.")
+AddInfoEntry(P_Info, "Super Fling (Power)", "Melemparkan musuh dengan kekuatan fisik yang sangat besar saat bersentuhan.")
+AddInfoEntry(P_Info, "Teleport Tool", "Memberikan alat di inventory untuk teleportasi instan ke Lobby atau Langit.")
+AddInfoEntry(P_Info, "Full Bright", "Memaksimalkan pencahayaan di game agar tidak ada area gelap, sangat berguna di tempat minim cahaya.")
+AddInfoEntry(P_Info, "Anti Lag", "Mengurangi kualitas bayangan dan efek visual untuk meningkatkan FPS.")
+
+-- OTHER TABS
+CreateToggle(P_Grab, "Enable Ez Grab", "EzGrab")
+CreateSlider(P_Grab, "Hitbox Size", "HitboxSize", 2, 50, 0)
+CreateToggle(P_Grab, "Smooth Hitbox", "SmoothHitbox")
+CreateToggle(P_Grab, "Hide Surface", "HideHitboxSurface")
+CreateColorBtn(P_Grab, "Hitbox Color", "HitboxColor")
+CreateToggle(P_Grab, "Striped Edges", "StripedEdges")
+CreateColorBtn(P_Grab, "Edge Color", "EdgeColor")
+CreateToggle(P_Grab, "Magnet Mode", "MagnetMode")
+CreateToggle(P_Grab, "Hyper Carry", "HyperCarry")
+CreateToggle(P_Grab, "Burry Grab", "BurryGrab")
+CreateSlider(P_Grab, "Magnet Reach", "MagnetReach", 10, 100, 0)
+CreateToggle(P_Visuals, "Player ESP", "ESP_Enabled")
+CreateColorBtn(P_Visuals, "ESP Color", "ESP_Color")
+CreateToggle(P_Visuals, "Blur Clothes", "BlurClothes")
+CreateToggle(P_Visuals, "Motion Blur", "MotionBlur_Enabled")
+CreateSlider(P_Visuals, "Blur Intensity", "MotionBlur_Intensity", 1, 30, 0)
+CreateToggle(P_Visuals, "Show Zoom Slider", "ShowZoomSlider", function(v) ZoomFrame.Visible = v end)
+CreateButton(P_Objects, "ADD NEON BOX", function() Logic:SpawnVisualBox() end)
+CreateButton(P_Objects, "ADD WOOD PLATFORM", function() Logic:SpawnWoodBox() end)
+CreateToggle(P_Aim, "Enable Aim Lock", "AimLockEnabled")
+CreateSlider(P_Aim, "Max Distance", "AimLockDistance", 50, 500, 0)
+CreateSlider(P_Aim, "Smoothness", "AimLockSmoothness", 0.1, 1, 2)
+CreateSlider(P_Aim, "Stabilizer", "AimLockStabilizer", 0.05, 1, 2)
+CreateToggle(P_Power, "Super Fling", "SuperFling", UpdatePowerVisuals)
+CreateToggle(P_Power, "Show Power Button", "ShowPowerBtn", function(v) PowerOverlay.Visible = v end)
+CreateSlider(P_Power, "Button Size", "PowerBtnSize", 40, 100, 0, function(v) PowerOverlay.Size = UDim2.new(0, v, 0, v) end)
+CreateSlider(P_Power, "Fling Force", "FlingPower", 100, 250000, 0)
+CreateButton(P_Power, "RESET ALL SETTINGS", function() _G.Config = DefaultConfig; SaveSettings(); SendNotification("SYSTEM", "Config Reset! UI Refreshed.") end)
+CreateToggle(P_Tele, "Auto Give TP Lobby Tool No Working", "AutoLobbyTool")
+CreateButton(P_Tele, "Force Give Lobby Tool No Working", function() createTeleportTool("TP Lobby", CFrame.new(11.75, -7.35, -28.95), true) end)
+CreateToggle(P_Tele, "Auto Give TP Sky Tool No Working", "AutoSkyTool")
+CreateButton(P_Tele, "Force Give Sky Tool No Working", function() createTeleportTool("TP Sky", Floor.CFrame, false) end)
+CreateToggle(P_Settings, "Quick Spawn", "QuickSpawn")
+CreateToggle(P_Settings, "No Player Collision", "NoCollision")
+CreateToggle(P_Settings, "Anti-Lag (Graphics)", "AntiLag", Logic.UpdateAntiLag)
+CreateToggle(P_Settings, "Network Optimizer", "NetworkOptimizer")
+CreateSlider(P_Settings, "FPS Limit", "FPSCap", 60, 360, 0, function(v) if setfpscap then setfpscap(v) end end)
+CreateSlider(P_Settings, "Field of View", "FOV", 70, 150, 0)
+CreateToggle(P_Settings, "Full Bright", "FullBright", function() Logic:UpdateLighting() end)
+CreateToggle(P_Settings, "Disable Shadows", "DisableShadows", function() Logic:UpdateLighting() end)
+CreateToggle(P_Settings, "Smooth Screen", "SmoothScreen")
+CreateToggle(P_Settings, "Old Anti-Grab", "AntiGrab", function(v) if v and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then _G.Config.SafeCFrame = LocalPlayer.Character.PrimaryPart.CFrame end end)
+
+-- Authoritative Loop
+task.spawn(function()
+    while task.wait(1.5) do
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if _G.Config.EzGrab then Logic:ApplyEzGrabToPlayer(player) else Logic:RestorePlayerHRP(player) end
+                Logic:UpdateBlurClothes(player, _G.Config.BlurClothes)
+                
+                if player.Character then
+                    local highlight = player.Character:FindFirstChild("ITZXERY_ESP")
+                    if _G.Config.ESP_Enabled then
+                        if not highlight then
+                            highlight = Instance.new("Highlight")
+                            highlight.Name = "ITZXERY_ESP"
+                            highlight.Adornee = player.Character
+                            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            highlight.Parent = player.Character 
+                        end
+                        highlight.FillTransparency = 1
+                        highlight.OutlineTransparency = 0
+                        highlight.OutlineColor = Logic.GetColor("ESP_Color")
+                    elseif highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+        end
+        if _G.Config.AutoLobbyTool then Logic:GiveLobbyTool(true) end
+        if _G.Config.AutoSkyTool then Logic:GiveSkyTool(true) end
+        
+        -- Lighting Maintenance
+        Logic:UpdateLighting()
+    end
+end)
+
+-- Advanced Performance Optimizer
+task.spawn(function()
+    while task.wait(45) do
+        collectgarbage("collect")
+        for _, v in pairs(Workspace:GetChildren()) do
+            if (v:IsA("BodyMover") or v:IsA("BodyGyro")) and not v.Parent then
+                v:Destroy()
+            end
+        end
+    end
+end)
+
+local BlurEffect = Instance.new("BlurEffect", Lighting)
+BlurEffect.Enabled = false
+local lastCamCF = Camera.CFrame
+
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        -- Handle Zoom Slider
+        if _G.Config.ZoomLevel > 0 then
+            Camera.FieldOfView = _G.Config.FOV - (_G.Config.ZoomLevel * (_G.Config.FOV - 10))
+            Lighting.FogEnd = 100000 -- Force clear view when zoomed
+            Vignette.ImageTransparency = 1 - (_G.Config.ZoomLevel * 0.8)
+        else
+            Camera.FieldOfView = _G.Config.FOV
+            Lighting.FogEnd = OriginalSettings.Lighting.FogEnd
+            Vignette.ImageTransparency = 1
+        end
+
+        if _G.Config.NetworkOptimizer then Logic:UpdateNetworkOptimizer(true) end
+        
+        if _G.Config.MotionBlur_Enabled then
+            local _, rotY, _ = Camera.CFrame:ToOrientation()
+            local _, lastRotY, _ = lastCamCF:ToOrientation()
+            local delta = math.abs(rotY - lastRotY)
+            BlurEffect.Enabled = true
+            BlurEffect.Size = math.clamp(delta * _G.Config.MotionBlur_Intensity, 0, 10) 
+        else
+            BlurEffect.Enabled = false
+        end
+        lastCamCF = Camera.CFrame
+        
+        if _G.Config.AimLockEnabled then 
+             local raycastParams = RaycastParams.new()
+             raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+             raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+             local rayOrigin = Camera.CFrame.Position
+             local rayDirection = Camera.CFrame.LookVector * _G.Config.AimLockDistance
+             local raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+             if raycastResult and raycastResult.Instance and raycastResult.Instance.Parent and raycastResult.Instance.Parent:FindFirstChild("HumanoidRootPart") then
+                 local targetHRP = raycastResult.Instance.Parent.HumanoidRootPart
+                 Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetHRP.Position), _G.Config.AimLockSmoothness)
+             end
+        end
+        if _G.Config.SmoothScreen then
+             Camera.CFrame = Camera.CFrame:Lerp(Camera.CFrame, 0.5)
+        end
+        if _G.Config.NoCollision then
+             for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character then
+                    for _, part in pairs(p.Character:GetChildren()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- FULLY RESTORED GRAB LOGIC (Brutal Removed)
+Workspace.ChildAdded:Connect(function(child)
+    if child.Name == "GrabParts" then
+        local grabPart = child:WaitForChild("GrabPart", 2)
+        if not grabPart then return end
+        local weldConstraint = grabPart:WaitForChild("WeldConstraint", 2)
+        if not weldConstraint then return end
+        local targetPart = weldConstraint.Part1
+        if not targetPart then return end
+
+        local victimChar = targetPart.Parent
+        local victimHum = victimChar:FindFirstChild("Humanoid")
+        local victimRoot = victimChar:FindFirstChild("HumanoidRootPart")
+        
+        if victimHum and victimRoot then
+            if _G.Config.HyperCarry then
+                 victimHum.PlatformStand = true
+                 victimHum:ChangeState(Enum.HumanoidStateType.Physics)
+                 for _, part in pairs(victimChar:GetChildren()) do if part:IsA("BasePart") then part.Massless = true end end
+            end
+            
+            if _G.Config.BurryGrab then
+                victimHum.HipHeight = -5 
+                for _, part in pairs(victimChar:GetChildren()) do
+                    if part:IsA("BasePart") and (part.Name:find("Leg") or part.Name:find("Foot") or part.Name == "HumanoidRootPart") then part.CanCollide = false end
+                end
+            end
+        end
+        
+        local bodyVelocity = Instance.new("BodyVelocity", targetPart)
+        bodyVelocity.Name = "FlingVelocity"
+        bodyVelocity.MaxForce = Vector3.new(0, 0, 0) 
+        
+        local connection = child:GetPropertyChangedSignal("Parent"):Connect(function()
+            if child.Parent == nil then
+                if victimHum then
+                     if _G.Config.HyperCarry then
+                         victimHum.PlatformStand = false
+                         victimHum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                         for _, part in pairs(victimChar:GetChildren()) do if part:IsA("BasePart") then part.Massless = false end end
+                     end
+                     if _G.Config.BurryGrab then victimHum.HipHeight = 0 end
+                end
+
+                if _G.Config.SuperFling then
+                    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bodyVelocity.Velocity = Workspace.CurrentCamera.CFrame.LookVector * _G.Config.FlingPower
+                    Debris:AddItem(bodyVelocity, 1) 
+                else
+                    bodyVelocity:Destroy()
+                end
+
+                if connection then connection:Disconnect() end
+            end
+        end)
+    end
+end)
+
+local function onCharacterAdded(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.Died:Connect(function() if _G.Config.QuickSpawn then task.wait(); LocalPlayer:LoadCharacter() end end)
+    task.wait(1)
+    if _G.Config.AutoLobbyTool then Logic:GiveLobbyTool(true) end
+    if _G.Config.AutoSkyTool then Logic:GiveSkyTool(true) end
+end
+if LocalPlayer.Character then onCharacterAdded(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+UpdatePowerVisuals()
+Logic:UpdateLighting() -- Initial Lighting check
+
+TabButtons[1].B.BackgroundColor3, TabButtons[1].B.TextColor3, Tabs[1].Visible = Color3.fromRGB(0, 255, 150), Color3.fromRGB(20, 20, 25), true -- Default to Info Tab
+SendNotification("ITZXERY HUB", "Updated V30.8 Loaded!")
+
+-- End of Script ItzXery</div>
+    </div>
+
+    <div class="script-container">
+        <div class="script-header">
+            <span class="filename">Tp Lobby FTAP.lua</span>
+            <button class="copy-btn" onclick="copyCode('code2', this)">SALIN</button>
+        </div>
+        <div id="code2" class="code-area">local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local TargetCFrame = CFrame.new(11.75, -7.35, -28.95)
+local isTeleporting = false
+
+local function forceBackpack()
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true)
+    end)
+end
+
+local function cleanState(char)
+    if not char then return end
+    pcall(function()
+        local HRP = char:FindFirstChild("HumanoidRootPart")
+        local Hum = char:FindFirstChild("Humanoid")
+        
+        if Hum then 
+            Hum.Sit = false 
+            Hum.PlatformStand = false
+        end
+
+        if HRP then
+            HRP.AssemblyLinearVelocity = Vector3.zero
+            HRP.AssemblyAngularVelocity = Vector3.zero
+            
+            for _, v in pairs(HRP:GetChildren()) do
+                if v:IsA("BodyMover") or v:IsA("AlignPosition") or v:IsA("RocketPropulsion") or v:IsA("BodyGyro") or v:IsA("BodyVelocity") then
+                    v:Destroy()
+                end
+            end
+            
+            for _, part in pairs(HRP:GetConnectedParts(true)) do
+                if not part:IsDescendantOf(char) then
+                    local weld = HRP:FindFirstChildOfClass("Weld") or HRP:FindFirstChildOfClass("WeldConstraint") or part:FindFirstChildOfClass("Weld")
+                    if weld then weld:Destroy() end
+                end
+            end
+        end
+    end)
+end
+
+local function executeTeleport()
+    if isTeleporting then return end
+    
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChild("Humanoid")
+
+    if HRP and Humanoid then
+        isTeleporting = true
+        
+        Humanoid:UnequipTools()
+        cleanState(Character)
+        
+        HRP.Anchored = true
+        HRP.CFrame = TargetCFrame
+        
+        Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+        
+        task.delay(0.05, function()
+            if HRP then
+                HRP.Anchored = false
+                HRP.AssemblyLinearVelocity = Vector3.zero
+                if Humanoid then
+                    Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                end
+            end
+            isTeleporting = false
+        end)
+    end
+end
+
+local function createTool()
+    if LocalPlayer.Backpack:FindFirstChild("TP Lobby") then 
+        LocalPlayer.Backpack["TP Lobby"]:Destroy() 
+    end
+    
+    local Tool = Instance.new("Tool")
+    Tool.Name = "TP Lobby"
+    Tool.RequiresHandle = false
+    Tool.CanBeDropped = false
+    
+    Tool.Equipped:Connect(function()
+        task.defer(executeTeleport)
+    end)
+    
+    Tool.Activated:Connect(function()
+        task.defer(executeTeleport)
+    end)
+    
+    Tool.Parent = LocalPlayer.Backpack
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        forceBackpack()
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 10)
+    forceBackpack()
+    createTool()
+end)
+
+forceBackpack()
+createTool()
+
+-- End of Script FTAP</div>
+    </div>
+
+    <script>
+        function copyCode(elementId, btnElement) {
+            var textToCopy = document.getElementById(elementId).innerText;
+            
+            var tempInput = document.createElement("textarea");
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            tempInput.setSelectionRange(0, 99999); 
+            
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            var originalText = btnElement.innerText;
+            btnElement.innerText = "SUKSES";
+            
+            setTimeout(function(){
+                btnElement.innerText = originalText;
+            }, 1000);
+        }
+    </script>
+
+</body>
+</html>
